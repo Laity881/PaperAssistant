@@ -1,7 +1,7 @@
 """Local paper storage, metadata, categories, and DOI/arXiv download helpers.
 
-The application stores PDFs under ``papers/<category>/`` and keeps a small
-JSON metadata index at ``papers/metadata.json``.  The index makes the UI fast
+The application stores PDFs under ``论文/<category>/`` and keeps a small
+JSON metadata index at ``论文/metadata.json``.  The index makes the UI fast
 and keeps user-visible fields such as title, DOI, category, and upload time
 separate from the physical file name.
 """
@@ -18,23 +18,124 @@ from typing import Any
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-PAPERS_DIR = BASE_DIR / "papers"
-NOTES_DIR = BASE_DIR / "notes"
-ANNOTATIONS_DIR = BASE_DIR / "annotations"
+PAPERS_DIR = BASE_DIR / "论文"
+NOTES_DIR = BASE_DIR / "笔记"
+ANNOTATIONS_DIR = BASE_DIR / "批注"
 METADATA_PATH = PAPERS_DIR / "metadata.json"
+LEGACY_DIRS = {
+    BASE_DIR / "papers": PAPERS_DIR,
+    BASE_DIR / "notes": NOTES_DIR,
+    BASE_DIR / "annotations": ANNOTATIONS_DIR,
+}
+LEGACY_PATH_PREFIXES = {
+    "papers": "论文",
+    "notes": "笔记",
+    "annotations": "批注",
+}
 
 DEFAULT_CATEGORY = "未分类"
 INVALID_FILENAME_CHARS = r'<>:"/\|?*'
 
 
+def _non_conflicting_path(directory: Path, filename: str) -> Path:
+    path = directory / filename
+    if not path.exists():
+        return path
+    stem = path.stem
+    suffix = path.suffix
+    counter = 2
+    while True:
+        candidate = directory / f"{stem}_{counter}{suffix}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
+def _merge_directory(source: Path, target: Path) -> None:
+    """Move legacy directory contents into the new Chinese directory."""
+
+    target.mkdir(parents=True, exist_ok=True)
+    for item in source.iterdir():
+        destination = target / item.name
+        if item.is_dir() and destination.exists() and destination.is_dir():
+            _merge_directory(item, destination)
+            try:
+                item.rmdir()
+            except OSError:
+                pass
+            continue
+
+        if destination.exists():
+            destination = _non_conflicting_path(target, item.name)
+        shutil.move(str(item), str(destination))
+
+    try:
+        source.rmdir()
+    except OSError:
+        pass
+
+
+def _migrate_legacy_directories() -> None:
+    """Migrate old English data folders to Chinese folders."""
+
+    for legacy, target in LEGACY_DIRS.items():
+        if not legacy.exists() or legacy.resolve() == target.resolve():
+            continue
+        if not target.exists():
+            legacy.rename(target)
+        else:
+            _merge_directory(legacy, target)
+
+
+def _rewrite_legacy_data_path(raw_path: str) -> str:
+    path = (raw_path or "").replace("\\", "/")
+    for old, new in LEGACY_PATH_PREFIXES.items():
+        if path == old:
+            return new
+        if path.startswith(f"{old}/"):
+            return f"{new}/{path[len(old) + 1:]}"
+    return raw_path
+
+
+def _normalize_metadata_paths() -> None:
+    """Rewrite metadata paths from legacy English folders to Chinese folders."""
+
+    if not METADATA_PATH.exists():
+        return
+    try:
+        items = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+    if not isinstance(items, list):
+        return
+
+    changed = False
+    for paper in items:
+        if not isinstance(paper, dict):
+            continue
+        for key in ("path", "stored_path"):
+            if key in paper:
+                updated = _rewrite_legacy_data_path(str(paper.get(key) or ""))
+                if updated != paper.get(key):
+                    paper[key] = updated
+                    changed = True
+    if changed:
+        METADATA_PATH.write_text(
+            json.dumps(items, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+
 def ensure_directories() -> None:
     """Create all local data directories and an empty metadata index."""
 
+    _migrate_legacy_directories()
     PAPERS_DIR.mkdir(parents=True, exist_ok=True)
     NOTES_DIR.mkdir(parents=True, exist_ok=True)
     ANNOTATIONS_DIR.mkdir(parents=True, exist_ok=True)
     if not METADATA_PATH.exists():
         METADATA_PATH.write_text("[]", encoding="utf-8")
+    _normalize_metadata_paths()
 
 
 def safe_filename(name: str, default: str = "untitled") -> str:
@@ -109,7 +210,7 @@ def _relative_to_base(path: Path) -> str:
 def resolve_paper_path(paper: dict[str, Any]) -> Path:
     """Resolve a metadata record to an absolute PDF path."""
 
-    raw_path = paper.get("path") or paper.get("stored_path") or ""
+    raw_path = _rewrite_legacy_data_path(paper.get("path") or paper.get("stored_path") or "")
     path = Path(raw_path)
     if not path.is_absolute():
         path = BASE_DIR / path
@@ -381,4 +482,3 @@ def update_paper_title(paper_id: str, new_title: str) -> dict[str, Any]:
     paper["title"] = (new_title or paper.get("title") or "Untitled Paper").strip()
     save_metadata(items)
     return paper
-

@@ -1,4 +1,4 @@
-"""Local file and category manager for papers and notes."""
+"""Local file and category manager for local papers and notes."""
 
 from __future__ import annotations
 
@@ -44,13 +44,13 @@ def _format_size(size_bytes: int) -> str:
 
 page_header(
     "文件管理",
-    "直接管理本地 papers/ 与 notes/ 文件，适合整理分类、清理副本和预览 Markdown 笔记。",
+    "直接管理本地 论文/ 与 笔记/ 文件，适合整理分类、清理副本和预览 Markdown 笔记。",
 )
 
-paper_tab, note_tab = st.tabs(["📄 papers", "📝 notes"])
+paper_tab, note_tab = st.tabs(["📄 论文", "📝 笔记"])
 
 with paper_tab:
-    panel_title("论文文件", "papers/")
+    panel_title("论文文件", "论文/")
 
     with st.expander("+ 创建新分类", expanded=False):
         with st.form("create_paper_category"):
@@ -70,7 +70,7 @@ with paper_tab:
     registered_papers = list_papers(selected_category)
     registered_by_path = {paper.get("path"): paper for paper in registered_papers}
     raw_files = list_files_raw(
-        "papers",
+        "论文",
         category=None if selected_category == "全部" else selected_category,
         suffixes=(".pdf",),
     )
@@ -130,12 +130,12 @@ with paper_tab:
                         else:
                             current_path = file_info["path"]
                             if new_name != file_info["filename"]:
-                                renamed = rename_file_raw(current_path, new_name, "papers")
+                                renamed = rename_file_raw(current_path, new_name, "论文")
                                 current_path = renamed["path"]
                             if target_category != file_info.get("category"):
                                 move_file_raw(
                                     current_path,
-                                    root_name="papers",
+                                    root_name="论文",
                                     category=target_category,
                                 )
                         st.toast("已保存修改。")
@@ -157,7 +157,7 @@ with paper_tab:
                                 if paper:
                                     delete_paper(paper["id"])
                                 else:
-                                    delete_file_raw(file_info["path"], "papers")
+                                    delete_file_raw(file_info["path"], "论文")
                                 st.session_state[delete_key] = False
                                 st.toast("已删除。")
                                 st.rerun()
@@ -181,7 +181,7 @@ with paper_tab:
                         st.rerun()
 
 with note_tab:
-    panel_title("笔记文件", "notes/")
+    panel_title("笔记文件", "笔记/")
 
     with st.expander("+ 创建新分类", expanded=False):
         with st.form("create_note_category"):
@@ -192,18 +192,18 @@ with note_tab:
             )
             if st.form_submit_button("创建分类", type="primary"):
                 if new_note_category.strip():
-                    result = create_category_raw("notes", new_note_category)
+                    result = create_category_raw("笔记", new_note_category)
                     st.toast(f"已创建分类：{result['category']}")
                     st.rerun()
 
-    note_categories = ["全部", *list_categories_raw("notes")]
+    note_categories = ["全部", *list_categories_raw("笔记")]
     selected_note_category = st.selectbox(
         "按分类筛选笔记",
         note_categories,
         key="note_file_filter",
     )
     note_files = list_files_raw(
-        "notes",
+        "笔记",
         category=None if selected_note_category == "全部" else selected_note_category,
     )
 
@@ -229,7 +229,7 @@ with note_tab:
             with cols[1]:
                 target_category = st.selectbox(
                     "移动到分类",
-                    list_categories_raw("notes") or ["论文精读笔记"],
+                    list_categories_raw("笔记") or ["论文精读笔记"],
                     key=f"move_note_{file_info['path']}",
                     label_visibility="collapsed",
                 )
@@ -242,12 +242,12 @@ with note_tab:
                     try:
                         current_path = file_info["path"]
                         if new_name != file_info["filename"]:
-                            renamed = rename_file_raw(current_path, new_name, "notes")
+                            renamed = rename_file_raw(current_path, new_name, "笔记")
                             current_path = renamed["path"]
                         if target_category != file_info.get("category"):
                             move_file_raw(
                                 current_path,
-                                root_name="notes",
+                                root_name="笔记",
                                 category=target_category,
                             )
                         st.toast("已保存修改。")
@@ -266,7 +266,7 @@ with note_tab:
                             type="primary",
                         ):
                             try:
-                                delete_file_raw(file_info["path"], "notes")
+                                delete_file_raw(file_info["path"], "笔记")
                                 st.session_state[delete_key] = False
                                 st.toast("已删除。")
                                 st.rerun()

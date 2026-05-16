@@ -26,19 +26,24 @@ def apply_page_style() -> None:
 def sidebar_nav(active: str = "") -> None:
     """Render a consistent dark application sidebar."""
 
-    from .llm_client import is_configured
+    from .llm_client import CHAT_MODEL_OPTIONS, get_chat_model_label, get_chat_model_name, is_configured
     from .paper_storage import get_paper_by_id, list_papers
 
     labels = {
         "home": "首页",
         "library": "文献库",
         "macro": "宏观解读",
-        "detail": "逐段精读",
+        "detail": "逐章节精读",
+        "learning": "学习中心",
         "files": "文件管理",
     }
     current = get_paper_by_id(st.session_state.get("selected_paper_id"))
     papers = list_papers()
     api_status = "已配置" if is_configured() else "未配置"
+    if "pa_chat_model" not in st.session_state:
+        st.session_state["pa_chat_model"] = get_chat_model_label()
+    model_name = get_chat_model_name()
+    model_label = get_chat_model_label(model_name)
 
     with st.sidebar:
         st.markdown(
@@ -64,10 +69,19 @@ def sidebar_nav(active: str = "") -> None:
         st.page_link("app.py", label="🏠 首页")
         st.page_link("pages/1_library.py", label="📚 文献库")
         st.page_link("pages/2_macro_reading.py", label="📖 宏观解读")
-        st.page_link("pages/3_detail_reading.py", label="🔍 逐段精读")
+        st.page_link("pages/3_detail_reading.py", label="🔍 逐章节精读")
+        st.page_link("pages/5_learning_center.py", label="🎓 学习中心")
         st.page_link("pages/4_file_manager.py", label="📁 文件管理")
 
         st.divider()
+
+        st.selectbox(
+            "模型",
+            list(CHAT_MODEL_OPTIONS),
+            key="pa_chat_model",
+            format_func=lambda item: "chat" if item == "chat" else "v4-pro",
+            help="界面显示短名，调用 API 时会自动映射为受支持的模型 ID。",
+        )
 
         # Theme toggle
         current_theme = st.session_state.get("pa_theme", "light")
@@ -84,7 +98,11 @@ def sidebar_nav(active: str = "") -> None:
 
         st.divider()
         st.metric("已入库论文", len(papers))
-        st.markdown(f'<span class="pa-tag">DeepSeek：{api_status}</span>', unsafe_allow_html=True)
+        st.markdown(
+            f'<span class="pa-tag">Chat API：{api_status}</span>'
+            f'<span class="pa-tag">模型：{html.escape(model_label)}</span>',
+            unsafe_allow_html=True,
+        )
 
         if current:
             title = html.escape(current.get("title", "Untitled Paper"))

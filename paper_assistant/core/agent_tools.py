@@ -1,7 +1,7 @@
 """Small local note/file tools inspired by the Gas Station tool style.
 
 The functions are deliberately simple and side-effect explicit.  They operate
-under the app's local ``notes/`` and ``papers/`` folders only, so pages can use
+under the app's local ``笔记/`` and ``论文/`` folders only, so pages can use
 them as lightweight backend tools without exposing arbitrary filesystem access.
 """
 
@@ -42,15 +42,15 @@ def _unique_path(directory: Path, filename: str) -> Path:
 
 
 def _root_from_name(root_name: str) -> Path:
-    if root_name == "papers":
+    if root_name == "论文":
         return PAPERS_DIR
-    if root_name == "notes":
+    if root_name == "笔记":
         return NOTES_DIR
-    raise ValueError("root_name 只能是 'papers' 或 'notes'。")
+    raise ValueError("root_name 只能是 '论文' 或 '笔记'。")
 
 
-def list_categories_raw(root_name: str = "notes") -> list[str]:
-    """List category folders under ``notes`` or ``papers``."""
+def list_categories_raw(root_name: str = "笔记") -> list[str]:
+    """List category folders under ``笔记`` or ``论文``."""
 
     root = _root_from_name(root_name)
     root.mkdir(parents=True, exist_ok=True)
@@ -92,7 +92,7 @@ def save_note_raw(
 
 
 def list_notes_raw(category: str | None = None) -> list[dict[str, Any]]:
-    """List Markdown notes saved under ``notes``."""
+    """List Markdown notes saved under ``笔记``."""
 
     NOTES_DIR.mkdir(parents=True, exist_ok=True)
     if category and category != "全部":
@@ -133,7 +133,7 @@ def read_note_raw(path: str) -> dict[str, Any]:
         note_path = BASE_DIR / note_path
     note_path = note_path.resolve()
     if not _is_within(note_path, NOTES_DIR):
-        raise ValueError("只能读取 notes/ 目录下的文件。")
+        raise ValueError("只能读取 笔记/ 目录下的文件。")
     if not note_path.exists():
         raise FileNotFoundError("笔记文件不存在。")
     return {
@@ -149,7 +149,7 @@ def list_files_raw(
     category: str | None = None,
     suffixes: tuple[str, ...] | None = None,
 ) -> list[dict[str, Any]]:
-    """List files under ``papers`` or ``notes`` for the file manager."""
+    """List files under ``论文`` or ``笔记`` for the file manager."""
 
     root = _root_from_name(root_name)
     root.mkdir(parents=True, exist_ok=True)
@@ -184,8 +184,8 @@ def list_files_raw(
     return sorted(files, key=lambda item: item["updated_at"], reverse=True)
 
 
-def rename_file_raw(path: str, new_name: str, root_name: str = "notes") -> dict[str, Any]:
-    """Rename a file under ``notes`` or ``papers``."""
+def rename_file_raw(path: str, new_name: str, root_name: str = "笔记") -> dict[str, Any]:
+    """Rename a file under ``笔记`` or ``论文``."""
 
     root = _root_from_name(root_name)
     source = Path(path)
@@ -210,8 +210,8 @@ def rename_file_raw(path: str, new_name: str, root_name: str = "notes") -> dict[
     }
 
 
-def delete_file_raw(path: str, root_name: str = "notes") -> bool:
-    """Delete a single file under ``notes`` or ``papers``."""
+def delete_file_raw(path: str, root_name: str = "笔记") -> bool:
+    """Delete a single file under ``笔记`` or ``论文``."""
 
     root = _root_from_name(root_name)
     target = Path(path)
@@ -227,7 +227,7 @@ def delete_file_raw(path: str, root_name: str = "notes") -> bool:
 
 
 def create_category_raw(root_name: str, category: str) -> dict[str, Any]:
-    """Create a category folder under ``notes`` or ``papers``."""
+    """Create a category folder under ``笔记`` or ``论文``."""
 
     root = _root_from_name(root_name)
     folder = root / safe_filename(category, "未分类")
@@ -258,4 +258,3 @@ def move_file_raw(
     target = _unique_path(folder, source.name)
     shutil.move(str(source), str(target))
     return {"ok": True, "path": _relative_to_base(target)}
-

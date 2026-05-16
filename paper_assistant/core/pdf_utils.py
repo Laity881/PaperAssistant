@@ -1,10 +1,11 @@
-"""PDF extraction, paragraph segmentation, viewer fallback, and annotations."""
+"""PDF extraction, section segmentation, viewer fallback, and annotations."""
 
 from __future__ import annotations
 
 import json
 import re
 import uuid
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,14 @@ PAGE_MARK_RE = re.compile(r"^\s*\[Page\s+\d+\]\s*$", re.IGNORECASE)
 SECTION_HEADING_RE = re.compile(
     r"^\s*((\d+(\.\d+)*\.?)|([IVX]+\.?)|([A-Z]))\s+[-A-Za-z一-龥].{0,90}$"
 )
+TOP_LEVEL_HEADING_RE = re.compile(
+    r"^\s*(\d+\.?\s+|[IVX]+\.?\s+)?"
+    r"(abstract|introduction|background|related work|method|methods|approach|model|"
+    r"experiments?|evaluation|results|discussion|conclusion|limitations?|references)"
+    r"\b.*$",
+    re.IGNORECASE,
+)
+NUMBERED_TOP_HEADING_RE = re.compile(r"^\s*\d+\.?\s+[-A-Za-z一-龥].{0,110}$")
 
 
 def extract_text_from_pdf(pdf_path: str | Path) -> str:
@@ -26,6 +35,13 @@ def extract_text_from_pdf(pdf_path: str | Path) -> str:
     splitter below removes them before segmentation so one PDF page will not be
     treated as one reading paragraph.
     """
+
+    try:
+        from cryptography.utils import CryptographyDeprecationWarning
+
+        warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+    except ImportError:
+        pass
 
     try:
         import pdfplumber
@@ -88,6 +104,17 @@ def _looks_like_heading(block: str) -> bool:
         "references",
     }
     return compact.lower() in heading_words or bool(SECTION_HEADING_RE.match(compact))
+
+
+def _looks_like_top_level_heading(block: str) -> bool:
+    """Return whether a block resembles a top-level paper section heading."""
+
+    compact = re.sub(r"\s+", " ", block).strip()
+    if not _looks_like_heading(compact):
+        return False
+    if re.match(r"^\s*\d+\.\d+", compact):
+        return False
+    return bool(TOP_LEVEL_HEADING_RE.match(compact) or NUMBERED_TOP_HEADING_RE.match(compact))
 
 
 def _sentences_from_block(block: str) -> list[str]:
@@ -214,6 +241,88 @@ def extract_paragraphs_from_pdf(pdf_path: str | Path) -> list[str]:
     """Extract and split a PDF into reading paragraphs."""
 
     return split_text_to_paragraphs(extract_text_from_pdf(pdf_path))
+
+
+def split_text_to_sections(
+    text: str,
+    *,
+    min_chars: int = 1800,
+    max_chars: int = 7200,
+) -> list[str]:
+    """Split extracted PDF text into chapter-sized reading sections.
+
+    The detail-reading UI uses this instead of paragraph chunks so readers work
+    through meaningful paper sections.  If headings cannot be detected, adjacent
+    paragraph chunks are merged into larger study sections.
+    """
+
+    paragraphs = split_text_to_paragraphs(text)
+    if not paragraphs:
+        return []
+
+    sections: list[str] = []
+    current_title = ""
+    current_parts: list[str] = []
+    current_len = 0
+    saw_heading = False
+
+    def flush() -> None:
+        nonlocal current_title, current_parts, current_len
+        content_parts = []
+        if current_title:
+            content_parts.append(current_title)
+        content_parts.extend(current_parts)
+        content = "\n\n".join(part.strip() for part in content_parts if part.strip())
+        if content:
+            sections.append(content)
+        current_title = ""
+        current_parts = []
+        current_len = 0
+
+    for paragraph in paragraphs:
+        paragraph = paragraph.strip()
+        if not paragraph:
+            continue
+
+        if _looks_like_top_level_heading(paragraph):
+            saw_heading = True
+            if current_parts or current_title:
+                flush()
+            current_title = paragraph
+            continue
+
+        paragraph_len = len(paragraph)
+        if current_parts and current_len + paragraph_len > max_chars:
+            flush()
+        current_parts.append(paragraph)
+        current_len += paragraph_len
+
+    if current_parts or current_title:
+        flush()
+
+    if saw_heading and sections:
+        return sections
+
+    merged: list[str] = []
+    bucket: list[str] = []
+    bucket_len = 0
+    for paragraph in paragraphs:
+        paragraph_len = len(paragraph)
+        if bucket and bucket_len >= min_chars and bucket_len + paragraph_len > max_chars:
+            merged.append("\n\n".join(bucket))
+            bucket = []
+            bucket_len = 0
+        bucket.append(paragraph)
+        bucket_len += paragraph_len
+    if bucket:
+        merged.append("\n\n".join(bucket))
+    return merged
+
+
+def extract_sections_from_pdf(pdf_path: str | Path) -> list[str]:
+    """Extract and split a PDF into chapter-sized reading sections."""
+
+    return split_text_to_sections(extract_text_from_pdf(pdf_path))
 
 
 def render_pdf_viewer(pdf_path: str | Path, *, height: int = 620) -> bool:
@@ -424,4 +533,3 @@ def annotations_to_markdown(pdf_path: str | Path) -> str:
         if note:
             lines.append(f"   - 批注：{note}")
     return "\n".join(lines)
-

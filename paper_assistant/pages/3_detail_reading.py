@@ -1,4 +1,4 @@
-"""Detail reading page: paragraph-level explanation, QA, and annotations."""
+"""Detail reading page: section-level explanation, QA, and annotations."""
 
 from __future__ import annotations
 
@@ -8,10 +8,11 @@ from pathlib import Path
 import streamlit as st
 
 from core.llm_client import (
-    answer_detail_question,
-    explain_confusion,
-    explain_paragraph,
+    get_chat_model_label,
     is_configured,
+    stream_answer_detail_question,
+    stream_explain_confusion,
+    stream_explain_paragraph,
 )
 from core.note_exporter import export_study_note
 from core.paper_storage import (
@@ -26,7 +27,7 @@ from core.pdf_utils import (
     extract_text_from_pdf,
     load_annotations,
     render_pdf_viewer,
-    split_text_to_paragraphs,
+    split_text_to_sections,
 )
 from core.ui import (
     READING_PANEL_HEIGHT,
@@ -38,10 +39,11 @@ from core.ui import (
 )
 
 
-st.set_page_config(page_title="逐段精读", layout="wide")
+st.set_page_config(page_title="逐章节精读", layout="wide")
 ensure_directories()
 apply_page_style()
 sidebar_nav("detail")
+MODEL_NAME = get_chat_model_label()
 
 
 @st.cache_data(show_spinner=False)
@@ -98,7 +100,7 @@ def _select_paper() -> dict | None:
 
 def _keys(paper_id: str) -> dict[str, str]:
     return {
-        "current": f"current_paragraph_{paper_id}",
+        "current": f"current_section_{paper_id}",
         "records": f"detail_records_{paper_id}",
         "history": f"detail_history_{paper_id}",
         "confusions": f"confusions_{paper_id}",
@@ -118,13 +120,13 @@ def _ensure_state(keys: dict[str, str]) -> None:
 def _save_record(
     keys: dict[str, str],
     index: int,
-    paragraph: str,
+    section: str,
     explanation: str,
 ) -> None:
     records = st.session_state[keys["records"]]
     records[str(index)] = {
-        "paragraph_index": index,
-        "original": paragraph,
+        "section_index": index,
+        "original": section,
         "explanation": explanation,
         "qas": records.get(str(index), {}).get("qas", []),
     }
@@ -133,33 +135,35 @@ def _save_record(
 def _run_explanation_if_needed(
     *,
     keys: dict[str, str],
-    paragraphs: list[str],
+    sections: list[str],
     paper_text: str,
     current_index: int,
     force: bool = False,
+    render: bool = True,
 ) -> None:
     record_key = str(current_index)
     records = st.session_state[keys["records"]]
     if not force and record_key in records:
         return
     if not is_configured():
-        st.warning("未配置 DEEPSEEK_API_KEY，暂不能自动解释段落。")
+        st.warning("未配置 CHAT_API_KEY 或 DEEPSEEK_API_KEY，暂不能自动解释章节。")
         return
 
-    with st.spinner(f"正在精读第 {current_index + 1} 段..."):
-        explanation = explain_paragraph(
-            paragraphs[current_index],
+    with st.spinner(f"正在精读第 {current_index + 1} 个章节片段..."):
+        stream = stream_explain_paragraph(
+            sections[current_index],
             paper_text,
             paragraph_index=current_index,
-            total_paragraphs=len(paragraphs),
+            total_paragraphs=len(sections),
         )
-    _save_record(keys, current_index, paragraphs[current_index], explanation)
+        explanation = st.write_stream(stream) if render else "".join(stream)
+    _save_record(keys, current_index, sections[current_index], explanation)
 
 
 def _show_chat(history: list[dict[str, str]]) -> None:
     if not history:
         st.markdown(
-            '<div class="pa-empty">这里会保存你在逐段精读中的追问、"下一段"操作和 AI 回答。</div>',
+            '<div class="pa-empty">这里会保存你在逐章节精读中的追问、“下一章”操作和 AI 回答。</div>',
             unsafe_allow_html=True,
         )
         return
@@ -264,8 +268,8 @@ def _navigate(keys: dict[str, str], index: int) -> None:
 
 
 page_header(
-    "逐段精读",
-    "按语义段落推进阅读，原文、PDF、解释和问答被组织在一个固定高度的精读工作台中。",
+    "逐章节精读",
+    "按论文章节推进阅读，原文、PDF、解释和问答被组织在左右固定高度的精读工作台中。",
 )
 
 panel_title("当前对象", "选择要精读的论文")
@@ -280,14 +284,14 @@ if not pdf_path.exists():
     st.stop()
 
 paper_text = _cached_pdf_text(str(pdf_path), pdf_path.stat().st_mtime)
-paragraphs = split_text_to_paragraphs(paper_text)
-if not paragraphs:
-    st.error("未能从 PDF 中提取可读段落。")
+sections = split_text_to_sections(paper_text)
+if not sections:
+    st.error("未能从 PDF 中提取可读章节。")
     st.stop()
 
 keys = _keys(paper["id"])
 _ensure_state(keys)
-current_index = min(st.session_state[keys["current"]], len(paragraphs) - 1)
+current_index = min(st.session_state[keys["current"]], len(sections) - 1)
 st.session_state[keys["current"]] = current_index
 
 left, right = st.columns([0.6, 0.4], gap="large")
@@ -297,18 +301,18 @@ with left:
         paper_identity(paper)
         st.markdown(
             f"""
-            <span class="pa-pill">共 {len(paragraphs)} 段</span>
-            <span class="pa-pill">当前第 {current_index + 1} 段</span>
+            <span class="pa-pill">共 {len(sections)} 个章节片段</span>
+            <span class="pa-pill">当前第 {current_index + 1} 章</span>
             """,
             unsafe_allow_html=True,
         )
 
-    panel_title("阅读导航", f"段落 {current_index + 1} / {len(paragraphs)}")
+    panel_title("阅读导航", f"章节 {current_index + 1} / {len(sections)}")
     # Row 1: Prev / Next
     nav_row1 = st.columns([0.5, 0.5], gap="small")
     with nav_row1[0]:
         if st.button(
-            "← 上一段",
+            "← 上一章",
             use_container_width=True,
             disabled=current_index == 0,
             key="prev_para",
@@ -316,9 +320,9 @@ with left:
             _navigate(keys, current_index - 1)
     with nav_row1[1]:
         if st.button(
-            "下一段 →",
+            "下一章 →",
             use_container_width=True,
-            disabled=current_index >= len(paragraphs) - 1,
+            disabled=current_index >= len(sections) - 1,
             key="next_para",
         ):
             _navigate(keys, current_index + 1)
@@ -327,9 +331,9 @@ with left:
     nav_row2 = st.columns([0.65, 0.35], gap="small")
     with nav_row2[0]:
         jump_target = st.number_input(
-            "跳转到段落",
+            "跳转到章节",
             min_value=1,
-            max_value=len(paragraphs),
+            max_value=len(sections),
             value=current_index + 1,
             step=1,
             label_visibility="collapsed",
@@ -339,11 +343,11 @@ with left:
         if st.button("跳转", use_container_width=True, key="jump_btn"):
             _navigate(keys, int(jump_target) - 1)
 
-    tab_text, tab_pdf, tab_list = st.tabs(["当前段落", "PDF", "段落列表"])
+    tab_text, tab_pdf, tab_list = st.tabs(["当前章节", "PDF", "章节列表"])
     with tab_text:
         with st.container(height=READING_PANEL_HEIGHT, border=True):
             st.markdown(
-                f"<div class='selected-para'>{html.escape(paragraphs[current_index])}</div>",
+                f"<div class='selected-para'>{html.escape(sections[current_index])}</div>",
                 unsafe_allow_html=True,
             )
     with tab_pdf:
@@ -361,12 +365,12 @@ with left:
         with st.container(height=READING_PANEL_HEIGHT, border=True):
             # Quick-jump selectbox
             para_options = [
-                f"段落 {i + 1}: {p.replace(chr(10), ' ')[:80]}..."
-                for i, p in enumerate(paragraphs)
+                f"章节 {i + 1}: {p.replace(chr(10), ' ')[:80]}..."
+                for i, p in enumerate(sections)
             ]
             quick_jump = st.selectbox(
                 "快速跳转",
-                options=list(range(len(paragraphs))),
+                options=list(range(len(sections))),
                 index=current_index,
                 format_func=lambda i: para_options[i],
                 key="para_quick_jump",
@@ -379,8 +383,8 @@ with left:
 
             # Visual numbered list
             list_html = '<div class="pa-para-list">'
-            for index, paragraph in enumerate(paragraphs):
-                excerpt = paragraph.replace("\n", " ")
+            for index, section in enumerate(sections):
+                excerpt = section.replace("\n", " ")
                 excerpt = excerpt[:120] + ("..." if len(excerpt) > 120 else "")
                 css_class = (
                     "pa-para-list-item pa-para-current"
@@ -399,11 +403,10 @@ with left:
     _annotation_panel(pdf_path)
 
 with right:
-    panel_title("AI 精读工作区", "解释、问答、笔记导出")
+    panel_title(f"{MODEL_NAME} 精读工作区", "解释、问答、笔记导出")
 
-    # Primary action: full-width explain button
     explain_now = st.button(
-        "解释当前段落",
+        "解释当前章节",
         type="primary",
         use_container_width=True,
         key=f"explain_now_{paper['id']}",
@@ -424,30 +427,31 @@ with right:
             st.session_state[keys["confusions"]] = []
             st.rerun()
 
-    if st.session_state[keys["auto"]] or explain_now:
-        try:
-            _run_explanation_if_needed(
-                keys=keys,
-                paragraphs=paragraphs,
-                paper_text=paper_text,
-                current_index=current_index,
-                force=explain_now,
-            )
-            if explain_now:
-                st.rerun()
-        except Exception as exc:
-            st.error(f"段落解释失败：{exc}")
-
     tab_explain, tab_chat, tab_note = st.tabs(["AI 解释", "问答记录", "笔记导出"])
 
     with tab_explain:
         with st.container(height=READING_PANEL_HEIGHT, border=True):
+            if st.session_state[keys["auto"]] or explain_now:
+                try:
+                    _run_explanation_if_needed(
+                        keys=keys,
+                        sections=sections,
+                        paper_text=paper_text,
+                        current_index=current_index,
+                        force=explain_now,
+                        render=True,
+                    )
+                    if explain_now:
+                        st.rerun()
+                except Exception as exc:
+                    st.error(f"章节解释失败：{exc}")
+
             record = st.session_state[keys["records"]].get(str(current_index))
             if record:
                 st.markdown(record.get("explanation", ""))
             else:
                 st.markdown(
-                    '<div class="pa-empty">点击"解释当前段落"，生成原文引用、中文翻译、详细解释和可能不懂的点。</div>',
+                    '<div class="pa-empty">点击“解释当前章节”，生成原文引用、中文翻译、面向初学者的解释和可能不懂的点。</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -472,14 +476,16 @@ with right:
         if submit_confusion and confusion.strip():
             try:
                 with st.spinner("正在补充解释..."):
-                    answer = explain_confusion(
-                        confusion,
-                        paper_text,
-                        paragraphs[current_index],
+                    answer = st.write_stream(
+                        stream_explain_confusion(
+                            confusion,
+                            paper_text,
+                            sections[current_index],
+                        )
                     )
                 st.session_state[keys["confusions"]].append(
                     {
-                        "paragraph_index": str(current_index),
+                        "section_index": str(current_index),
                         "confusion": confusion,
                         "answer": answer,
                     }
@@ -498,37 +504,41 @@ with right:
         with st.container(height=READING_PANEL_HEIGHT, border=True):
             _export_controls(paper, pdf_path, keys)
 
-prompt = st.chat_input("提问，或输入"下一段"自动切换到下一段。")
+prompt = st.chat_input('提问，或输入“下一章”自动切换到下一章。')
 if prompt:
     st.session_state[keys["history"]].append({"role": "user", "content": prompt})
     normalized = prompt.strip().lower().rstrip("。.!！")
     try:
-        if normalized in {"下一段", "next"}:
-            next_index = min(st.session_state[keys["current"]] + 1, len(paragraphs) - 1)
+        if normalized in {"下一章", "下一节", "next"}:
+            next_index = min(st.session_state[keys["current"]] + 1, len(sections) - 1)
             st.session_state[keys["current"]] = next_index
             _run_explanation_if_needed(
                 keys=keys,
-                paragraphs=paragraphs,
+                sections=sections,
                 paper_text=paper_text,
                 current_index=next_index,
+                render=False,
             )
             record = st.session_state[keys["records"]].get(str(next_index), {})
-            answer = f"已切换到第 {next_index + 1} 段。\n\n{record.get('explanation', '')}"
+            answer = f"已切换到第 {next_index + 1} 个章节片段。\n\n{record.get('explanation', '')}"
         else:
-            selected = paragraphs[st.session_state[keys["current"]]]
-            with st.spinner("DeepSeek 正在结合全文和当前段落回答..."):
-                answer = answer_detail_question(
-                    prompt,
-                    paper_text,
-                    selected,
-                    st.session_state[keys["history"]],
-                )
+            selected = sections[st.session_state[keys["current"]]]
+            with st.spinner(f"{MODEL_NAME} 正在结合全文和当前章节回答..."):
+                with st.chat_message("assistant"):
+                    answer = st.write_stream(
+                        stream_answer_detail_question(
+                            prompt,
+                            paper_text,
+                            selected,
+                            st.session_state[keys["history"]],
+                        )
+                    )
             record_key = str(st.session_state[keys["current"]])
             records = st.session_state[keys["records"]]
             records.setdefault(
                 record_key,
                 {
-                    "paragraph_index": st.session_state[keys["current"]],
+                    "section_index": st.session_state[keys["current"]],
                     "original": selected,
                     "explanation": "",
                     "qas": [],

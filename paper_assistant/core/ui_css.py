@@ -35,58 +35,58 @@ class ThemeColors:
 
 
 LIGHT_THEME = ThemeColors(
-    bg="#f3f5f8",
-    bg_2="#eef1f5",
+    bg="#f6f8f5",
+    bg_2="#edf3ef",
     surface="#ffffff",
-    surface_soft="#f8fafc",
-    surface_tint="#f4f7fb",
+    surface_soft="#f7faf8",
+    surface_tint="#eef7f3",
     ink="#111827",
-    ink_2="#1f2937",
-    muted="#667085",
+    ink_2="#24302f",
+    muted="#66736f",
     faint="#98a2b3",
-    border="#d8dee8",
-    border_soft="#e8edf3",
-    accent="#2563eb",
-    accent_2="#0f766e",
-    warm="#a16207",
-    sidebar="#0f172a",
-    sidebar_soft="#1e293b",
-    sidebar_line="#334155",
+    border="#d9e2dc",
+    border_soft="#e8eee9",
+    accent="#0f766e",
+    accent_2="#b42318",
+    warm="#b54708",
+    sidebar="#181716",
+    sidebar_soft="#262321",
+    sidebar_line="#37332f",
     shadow="0 18px 45px rgba(16, 24, 40, 0.08)",
     shadow_soft="0 10px 26px rgba(16, 24, 40, 0.05)",
-    primary_button_bg="#1e40af",
-    primary_button_hover="#1e3a8a",
-    gradient_app="radial-gradient(ellipse at 20% 0%, rgba(37, 99, 235, 0.035) 0%, transparent 55%), linear-gradient(180deg, #f8f9fb 0%, #f3f5f8 42%, #edf0f4 100%)",
+    primary_button_bg="#0f766e",
+    primary_button_hover="#115e59",
+    gradient_app="linear-gradient(180deg, #f8faf7 0%, #f2f6f3 48%, #edf3ef 100%)",
     chat_bg="#ffffff",
-    chat_border="#e8edf3",
+    chat_border="#e8eee9",
     stat_bg="rgba(255, 255, 255, 0.78)",
 )
 
 DARK_THEME = ThemeColors(
-    bg="#0f1117",
-    bg_2="#16181d",
-    surface="#1c1f26",
-    surface_soft="#22252e",
-    surface_tint="#1a1d24",
+    bg="#111111",
+    bg_2="#181716",
+    surface="#1e1d1b",
+    surface_soft="#25231f",
+    surface_tint="#202720",
     ink="#e5e7eb",
     ink_2="#d1d5db",
     muted="#9ca3af",
     faint="#6b7280",
-    border="#2d3139",
-    border_soft="#262930",
-    accent="#3b82f6",
-    accent_2="#14b8a6",
+    border="#34312d",
+    border_soft="#2b2926",
+    accent="#2dd4bf",
+    accent_2="#fb7185",
     warm="#f59e0b",
-    sidebar="#080b10",
-    sidebar_soft="#13161d",
-    sidebar_line="#1f232b",
+    sidebar="#090909",
+    sidebar_soft="#171514",
+    sidebar_line="#2a2623",
     shadow="0 18px 45px rgba(0, 0, 0, 0.35)",
     shadow_soft="0 10px 26px rgba(0, 0, 0, 0.25)",
-    primary_button_bg="#2563eb",
-    primary_button_hover="#1d4ed8",
-    gradient_app="radial-gradient(ellipse at 20% 0%, rgba(59, 130, 246, 0.06) 0%, transparent 55%), linear-gradient(180deg, #13161d 0%, #0f1117 42%, #0c0e14 100%)",
-    chat_bg="#1c1f26",
-    chat_border="#2d3139",
+    primary_button_bg="#0f766e",
+    primary_button_hover="#0d9488",
+    gradient_app="linear-gradient(180deg, #151515 0%, #101010 50%, #0d0d0d 100%)",
+    chat_bg="#1e1d1b",
+    chat_border="#34312d",
     stat_bg="rgba(28, 31, 38, 0.85)",
 )
 
@@ -119,6 +119,8 @@ def _build_variables(theme: ThemeColors) -> str:
         --pa-radius: 8px;
         --pa-radius-sm: 6px;
         --pa-transition: 180ms ease;
+        --pa-chat-bg: {theme.chat_bg};
+        --pa-chat-border: {theme.chat_border};
     }}
     """
 
@@ -276,7 +278,7 @@ def _build_base() -> str:
     }
 
     [data-testid="stChatInput"] textarea:focus {
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+        box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16) !important;
     }
     """
 
@@ -530,7 +532,7 @@ def _build_color_dependent(theme: ThemeColors) -> str:
     /* ── Paragraph display ── */
     .selected-para {{
         border-left: 4px solid var(--pa-accent);
-        background: linear-gradient(180deg, rgba(37, 99, 235, 0.04) 0%, rgba(37, 99, 235, 0.01) 100%);
+        background: linear-gradient(180deg, rgba(15, 118, 110, 0.06) 0%, rgba(15, 118, 110, 0.01) 100%);
         padding: 1rem 1.05rem;
         border-radius: var(--pa-radius);
         line-height: 1.78;
@@ -586,7 +588,7 @@ def _build_color_dependent(theme: ThemeColors) -> str:
 
     .pa-card-current {{
         border-left: 3px solid var(--pa-accent) !important;
-        background: linear-gradient(90deg, rgba(37, 99, 235, 0.03) 0%, transparent 10%) !important;
+        background: linear-gradient(90deg, rgba(15, 118, 110, 0.06) 0%, transparent 10%) !important;
     }}
 
     /* ── Paragraph list ── */
@@ -605,7 +607,7 @@ def _build_color_dependent(theme: ThemeColors) -> str:
     }}
 
     .pa-para-current {{
-        background: rgba(37, 99, 235, 0.06);
+        background: rgba(15, 118, 110, 0.08);
         border-left: 3px solid var(--pa-accent);
         font-weight: 600;
     }}
@@ -709,6 +711,241 @@ def _build_color_dependent(theme: ThemeColors) -> str:
         font-size: 0.85rem;
     }}
 
+    /* ── Dashboard workspace ── */
+    .pa-section-eyebrow {{
+        color: var(--pa-accent);
+        font-size: 0.72rem;
+        font-weight: 820;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 0.45rem;
+    }}
+
+    .pa-focus-title {{
+        color: var(--pa-ink);
+        font-size: 1.28rem;
+        line-height: 1.28;
+        font-weight: 820;
+        margin-bottom: 0.28rem;
+    }}
+
+    .pa-focus-meta {{
+        color: var(--pa-muted);
+        font-size: 0.86rem;
+        line-height: 1.5;
+    }}
+
+    .pa-progress-row {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin: 0.9rem 0 1rem;
+    }}
+
+    .pa-progress-chip {{
+        border: 1px solid var(--pa-border);
+        background: var(--pa-surface-soft);
+        color: var(--pa-muted);
+        border-radius: 999px;
+        padding: 0.24rem 0.6rem;
+        font-size: 0.78rem;
+        font-weight: 720;
+    }}
+
+    .pa-progress-chip.is-done {{
+        background: rgba(15, 118, 110, 0.1);
+        border-color: rgba(15, 118, 110, 0.24);
+        color: var(--pa-accent);
+    }}
+
+    .pa-action-copy {{
+        min-height: 5rem;
+        border: 1px solid var(--pa-border-soft);
+        border-radius: var(--pa-radius);
+        background: var(--pa-surface-soft);
+        padding: 0.72rem 0.75rem;
+        margin-bottom: 0.45rem;
+    }}
+
+    .pa-action-title {{
+        color: var(--pa-ink);
+        font-weight: 800;
+        line-height: 1.25;
+        margin-bottom: 0.25rem;
+    }}
+
+    .pa-action-desc {{
+        color: var(--pa-muted);
+        font-size: 0.78rem;
+        line-height: 1.45;
+    }}
+
+    .pa-check-row {{
+        display: grid;
+        grid-template-columns: 0.9rem minmax(6rem, 1fr) auto;
+        gap: 0.55rem;
+        align-items: center;
+        min-height: 2.35rem;
+        border-bottom: 1px solid var(--pa-border-soft);
+    }}
+
+    .pa-check-row:last-child {{
+        border-bottom: 0;
+    }}
+
+    .pa-status-dot {{
+        width: 0.58rem;
+        height: 0.58rem;
+        border-radius: 50%;
+        display: inline-block;
+        background: var(--pa-warm);
+        box-shadow: 0 0 0 3px rgba(181, 71, 8, 0.12);
+    }}
+
+    .pa-status-dot.ok {{
+        background: var(--pa-accent);
+        box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+    }}
+
+    .pa-check-name {{
+        color: var(--pa-ink);
+        font-weight: 740;
+        font-size: 0.88rem;
+    }}
+
+    .pa-check-status {{
+        color: var(--pa-muted);
+        font-size: 0.82rem;
+        font-weight: 680;
+    }}
+
+    .pa-timeline-item {{
+        display: grid;
+        grid-template-columns: 2.45rem 1fr;
+        gap: 0.75rem;
+        padding: 0.68rem 0;
+        border-bottom: 1px solid var(--pa-border-soft);
+    }}
+
+    .pa-timeline-item:last-child {{
+        border-bottom: 0;
+    }}
+
+    .pa-timeline-num {{
+        width: 2.1rem;
+        height: 2.1rem;
+        border-radius: var(--pa-radius);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--pa-border);
+        color: var(--pa-muted);
+        font-size: 0.78rem;
+        font-weight: 820;
+        background: var(--pa-surface-soft);
+    }}
+
+    .pa-timeline-item.is-done .pa-timeline-num {{
+        color: #ffffff;
+        background: var(--pa-accent);
+        border-color: var(--pa-accent);
+    }}
+
+    .pa-timeline-title {{
+        color: var(--pa-ink);
+        font-weight: 780;
+        line-height: 1.35;
+    }}
+
+    .pa-timeline-desc {{
+        color: var(--pa-muted);
+        font-size: 0.84rem;
+        line-height: 1.55;
+        margin-top: 0.12rem;
+    }}
+
+    .pa-data-grid {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+    }}
+
+    .pa-data-grid > div {{
+        border: 1px solid var(--pa-border-soft);
+        background: var(--pa-surface-soft);
+        border-radius: var(--pa-radius);
+        padding: 0.75rem;
+        min-height: 5.1rem;
+    }}
+
+    .pa-data-grid strong {{
+        display: block;
+        color: var(--pa-ink);
+        margin-bottom: 0.25rem;
+        font-size: 0.92rem;
+    }}
+
+    .pa-data-grid span {{
+        color: var(--pa-muted);
+        line-height: 1.48;
+        font-size: 0.8rem;
+    }}
+
+    .pa-learning-grid {{
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.7rem;
+        margin: 0.35rem 0 0.9rem;
+    }}
+
+    .pa-learning-card {{
+        border: 1px solid var(--pa-border-soft);
+        background: var(--pa-surface-soft);
+        border-radius: var(--pa-radius);
+        padding: 0.78rem;
+        min-height: 5.4rem;
+    }}
+
+    .pa-learning-card strong {{
+        display: block;
+        color: var(--pa-ink);
+        font-size: 0.9rem;
+        margin-bottom: 0.2rem;
+    }}
+
+    .pa-learning-card span {{
+        color: var(--pa-muted);
+        font-size: 0.79rem;
+        line-height: 1.45;
+    }}
+
+    .pa-score-band {{
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.65rem;
+        margin: 0.35rem 0 0.75rem;
+    }}
+
+    .pa-score-item {{
+        border: 1px solid var(--pa-border-soft);
+        border-radius: var(--pa-radius);
+        padding: 0.65rem;
+        background: var(--pa-surface-soft);
+    }}
+
+    .pa-score-label {{
+        color: var(--pa-muted);
+        font-size: 0.76rem;
+        font-weight: 700;
+    }}
+
+    .pa-score-value {{
+        color: var(--pa-ink);
+        font-size: 1.18rem;
+        font-weight: 820;
+        margin-top: 0.12rem;
+    }}
+
     /* ── Status indicator (st.status area) ── */
     [data-testid="stStatusWidget"] {{
         border-radius: var(--pa-radius);
@@ -758,6 +995,11 @@ def _build_responsive() -> str:
         .pa-library-row {
             grid-template-columns: 1fr;
         }
+        .pa-learning-grid,
+        .pa-score-band,
+        .pa-data-grid {
+            grid-template-columns: 1fr 1fr;
+        }
     }
 
     @media (max-width: 640px) {
@@ -769,6 +1011,17 @@ def _build_responsive() -> str:
         }
         .pa-paper-strip {
             flex-direction: column;
+        }
+        .pa-learning-grid,
+        .pa-score-band,
+        .pa-data-grid {
+            grid-template-columns: 1fr;
+        }
+        .pa-check-row {
+            grid-template-columns: 0.9rem 1fr;
+        }
+        .pa-check-status {
+            grid-column: 2;
         }
     }
     """

@@ -112,10 +112,6 @@ def build_summary_source(
 ## 用户自定义笔记
 
 {user_note}
-
-### 来自 PDF 批注
-
-{annotation_md}
 """
 
 
@@ -156,4 +152,3 @@ def export_study_note(
     saved["llm_error"] = llm_error
     saved["used_llm"] = use_llm and is_configured() and not llm_error
     return saved
-
